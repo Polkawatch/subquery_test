@@ -1,52 +1,39 @@
-import {SubstrateEvent, SubstrateExtrinsic} from "@subql/types";
-import {Validators} from "../types";
-import {Balance} from "@polkadot/types/interfaces";
+import {ActiveEraInfo, Balance, EraIndex, Exposure } from "@polkadot/types/interfaces";
+import {Option} from "@polkadot/types"
+import {SubstrateEvent} from "@subql/types";
+import {ValidatorThreshold} from "../types/models/ValidatorThreshold";
 
-
-// export async function handleTransfer(event: SubstrateEvent): Promise<void> {
-//     const from = event.event.data[0]
-//     const to = event.event.data[1]
-//     const amount = event.event.data[2]
-
-//     const transfer = new Transfer(
-//         `${event.block.block.header.number.toNumber()}-${event.idx}`
-//     )
-//     transfer.blockNumber = event.block.block.header.number.toBigInt()
-//     transfer.from = from.toString()
-//     transfer.to = to.toString()
-//     transfer.amount = (amount as Balance).toBigInt()
-//     await transfer.save()
-// }
-
-// export async function handleValidators(event: SubstrateEvent): Promise<void> {
-//     const from = event.event.data[0]
-//     const to = event.event.data[1]
-//     const amount = event.event.data[2]
-
-//     const transfer = new Transfer(
-//         `${event.block.block.header.number.toNumber()}-${event.idx}`
-//     )
-//     transfer.blockNumber = event.block.block.header.number.toBigInt()
-//     transfer.from = from.toString()
-//     transfer.to = to.toString()
-//     transfer.amount = (amount as Balance).toBigInt()
-//     await transfer.save()
-// }
-
-
-export async function handleValidators(extrinsic: SubstrateExtrinsic): Promise<void> {
-    const record = new Validators(
-        `${extrinsic.block.block.header.hash.toString()}`
-    )
-    record.field4 = extrinsic.block.timestamp;
-    // const record = await Validators.get(extrinsic.block.block.header.hash.toString());
-    //Date type timestamp
-    // record.validators = extrinsic.extrinsic.call.session.validators;
-    //Boolean tyep
-    // record.field5 = true;
-    await record.save();
+export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
+    // in the early stage of kusama, staking.activeEra didn't exist
+    if (!api.query.staking.activeEra) return;
+    const [activeEra] = await api.queryMulti<[Option<ActiveEraInfo>, Option<EraIndex>]>([
+        api.query.staking.activeEra,
+        // api.query.staking.currentEra
+    ]);
+    if (activeEra.isEmpty) return;
+    const entity = new ValidatorThreshold(activeEra.unwrap().index.toString());
+    const validators = await api.query.session.validators();
+    const exposureInfos = await api.query.staking.erasStakers.multi<Exposure>(validators.map(validator=>[activeEra.unwrap().index, validator]));
+    const thresholdValidator = exposureInfos.reduce<{accountId: string, total: Balance}>((acc, exposure, idx)=>{
+        if (!acc || exposure.total.unwrap().lt(acc.total)) {
+            return {accountId: validators[idx].toString(), total: exposure.total.unwrap()};
+        }
+        return acc;
+    }, undefined );
+    const vals = []
+    validators.forEach(function(elem) {
+       vals.push(elem.toString());
+    });
+    entity.startBlock = block.block.header.number.toNumber();
+    entity.timestamp = block.timestamp;
+    entity.totalValidators = validators.length;
+    entity.validatorList = vals;
+    entity.validatorWithLeastBond = thresholdValidator.accountId;
+    entity.leastStaked = thresholdValidator.total.toBigInt();
+    entity.totalStaked = (await api.query.staking.erasTotalStake(activeEra.unwrap().index)).toBigInt();
+    entity.maxNominatorRewardedPerValidator = api.consts.staking.maxNominatorRewardedPerValidator?.toNumber();
+    await entity.save();
 }
-
 
 
 

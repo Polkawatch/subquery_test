@@ -3,16 +3,17 @@ description: ''
 repository: ''
 schema: ./schema.graphql
 network:
-  endpoint: wss://polkadot.api.onfinality.io/public-ws
+  endpoint: wss://polkadot.api.onfinality.io/ws?apikey=ec9800c1-55be-4ffc-bb9e-f80233f4e1b3
   dictionary: https://api.subquery.network/sq/subquery/dictionary-polkadot
 dataSources:
-  - name: main
+  - name: runtime
     kind: substrate/Runtime
-    startBlock: 1
+    # for kusama startBlock: 1445458
+    startBlock: 4445458
     mapping:
       handlers:
-        - handler: handleTransfer
+        - handler: handleBlock
           kind: substrate/EventHandler
           filter:
-            module: balances
-            method: Transfer
+            module: session
+            method: NewSession

@@ -1,7 +1,21 @@
 
-type Validators @entity {
+type ValidatorThreshold @entity {
+  # era index
+  id: ID!
 
-  id: ID! #id is a required field
-  #validators: [String]
-  field4: Date
+  startBlock: Int!
+
+  timestamp: Date!
+
+  validatorWithLeastBond: String
+
+  validatorList: [String]
+
+  leastStaked: BigInt
+
+  totalStaked: BigInt
+
+  maxNominatorRewardedPerValidator: Int
+
+  totalValidators: Int
 }
