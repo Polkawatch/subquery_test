@@ -33,6 +33,8 @@ type Exposure @entity {
 
   # own amount at stake
   own: String
+
+  nominators: [Nominator] @derivedFrom(field: "exposure")
 }
 
 type Nominator @entity {

@@ -5,6 +5,11 @@ import {Era} from "../types/models/Era";
 import {Exposure} from "../types/models/Exposure";
 import {Nominator} from "../types/models/Nominator";
 import {ValidatorSet} from "../types/models/ValidatorSet";
+// import geolite2 from "geolite2-redist";
+// import maxmind from "maxmind";
+// import Promise from "bluebird";
+// import dns from "dns";
+
 
 export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
     // in the early stage of kusama, staking.activeEra didn't exist
@@ -13,6 +18,38 @@ export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
         api.query.staking.activeEra,
     ]);
     if (activeEra.isEmpty) return;
+
+
+
+// sample query
+//     {
+//   query {
+//     exposures (first: 1)  {
+//       nodes {
+//         id 
+//         nominators { nodes { id } }
+//       }
+//     }
+//   }
+// }
+
+    // const dnsLookupAsync = Promise.promisify(dns.lookup);
+
+    // await geolite2.downloadDbs();
+    // const ASNLookup: any = await geolite2.open('GeoLite2-ASN', path => maxmind.open(path));
+    // const ContryLookup: any = await geolite2.open('GeoLite2-Country', path => maxmind.open(path));
+    // const testIp: any = await dnsLookupAsync("polkawatch.app");
+    // const testASN: any = ASNLookup.get(testIp);
+    // console.log('HAVE ASN NUMBER ', testASN.autonomous_system_number === 8473 );
+    // const testCountry = ContryLookup.get(testIp);
+    // console.log('HAVE ASN COUNRY ', testCountry.country.iso_code === 'SE' );
+    // ASNLookup.close();
+    // ContryLookup.close();
+
+
+
+
+
 
     // instantiate Era type and add some values
     const entityEra = new Era(activeEra.unwrap().index.toString());
@@ -40,7 +77,7 @@ export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
     await validators.forEach(async function(validator) {
         const entityExposure = new Exposure(validator);
         const stakingExposureRaw = await api.query.staking.erasStakers<ExposureType>(activeEra.unwrap().index, validator);
-        const validatorTotalStake = stakingExposureRaw.total.toString(); //string
+        const validatorTotalStake = stakingExposureRaw.total.toString();
         const validatorOwnStake = stakingExposureRaw.own.toString();
         entityExposure.total = validatorTotalStake;
         entityExposure.own = validatorOwnStake;
