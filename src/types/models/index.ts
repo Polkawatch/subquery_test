@@ -2,5 +2,11 @@
 
 // Auto-generated , DO NOT EDIT
 
-export {ValidatorThreshold} from "./ValidatorThreshold"
+export {Era} from "./Era"
+
+export {ValidatorSet} from "./ValidatorSet"
+
+export {Exposure} from "./Exposure"
+
+export {Nominator} from "./Nominator"
 

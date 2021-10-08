@@ -1,39 +1,123 @@
-import {ActiveEraInfo, Balance, EraIndex, Exposure } from "@polkadot/types/interfaces";
-import {Option} from "@polkadot/types"
+import {ActiveEraInfo, Balance, EraIndex, Exposure as ExposureType, Nominations } from "@polkadot/types/interfaces";
+import {Option, StorageKey} from "@polkadot/types"
 import {SubstrateEvent} from "@subql/types";
-import {ValidatorThreshold} from "../types/models/ValidatorThreshold";
+import {Era} from "../types/models/Era";
+import {Exposure} from "../types/models/Exposure";
+import {Nominator} from "../types/models/Nominator";
+import {ValidatorSet} from "../types/models/ValidatorSet";
 
 export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
     // in the early stage of kusama, staking.activeEra didn't exist
     if (!api.query.staking.activeEra) return;
     const [activeEra] = await api.queryMulti<[Option<ActiveEraInfo>, Option<EraIndex>]>([
         api.query.staking.activeEra,
-        // api.query.staking.currentEra
     ]);
     if (activeEra.isEmpty) return;
-    const entity = new ValidatorThreshold(activeEra.unwrap().index.toString());
-    const validators = await api.query.session.validators();
-    const exposureInfos = await api.query.staking.erasStakers.multi<Exposure>(validators.map(validator=>[activeEra.unwrap().index, validator]));
-    const thresholdValidator = exposureInfos.reduce<{accountId: string, total: Balance}>((acc, exposure, idx)=>{
-        if (!acc || exposure.total.unwrap().lt(acc.total)) {
-            return {accountId: validators[idx].toString(), total: exposure.total.unwrap()};
-        }
-        return acc;
-    }, undefined );
-    const vals = []
-    validators.forEach(function(elem) {
-       vals.push(elem.toString());
+
+    // instantiate Era type and add some values
+    const entityEra = new Era(activeEra.unwrap().index.toString());
+    entityEra.startBlock = block.block.header.number.toNumber();
+    entityEra.timestamp = block.timestamp;
+
+    // instantiate ValidatorSet type and add some values
+    const entityValidatorSet = new ValidatorSet(activeEra.unwrap().index.toString());
+    entityValidatorSet.totalValidators = (await api.query.session.validators()).length
+    const validatorsRaw = await api.query.session.validators();
+    // const validators = validatorsRaw.toHuman(); <- type conflict AnyJson .. 
+    const validators = [];
+    validatorsRaw.forEach(function(elem) {
+       validators.push(elem.toString());
     });
-    entity.startBlock = block.block.header.number.toNumber();
-    entity.timestamp = block.timestamp;
-    entity.totalValidators = validators.length;
-    entity.validatorList = vals;
-    entity.validatorWithLeastBond = thresholdValidator.accountId;
-    entity.leastStaked = thresholdValidator.total.toBigInt();
-    entity.totalStaked = (await api.query.staking.erasTotalStake(activeEra.unwrap().index)).toBigInt();
-    entity.maxNominatorRewardedPerValidator = api.consts.staking.maxNominatorRewardedPerValidator?.toNumber();
-    await entity.save();
+    entityValidatorSet.validatorList = validators;
+
+    // create realtionships & save
+    entityEra.validatorSetId = entityValidatorSet.id;
+    entityValidatorSet.eraId = entityEra.id;
+    await entityEra.save();
+    await entityValidatorSet.save();
+
+    // instantiate Exposure type & Nominator type and add values
+    await validators.forEach(async function(validator) {
+        const entityExposure = new Exposure(validator);
+        const stakingExposureRaw = await api.query.staking.erasStakers<ExposureType>(activeEra.unwrap().index, validator);
+        const validatorTotalStake = stakingExposureRaw.total.toString(); //string
+        const validatorOwnStake = stakingExposureRaw.own.toString();
+        entityExposure.total = validatorTotalStake;
+        entityExposure.own = validatorOwnStake;
+        await entityExposure.save();
+        stakingExposureRaw.others.forEach(function(nominator){
+            const entityNominator = new Nominator(nominator.who.toString());
+            entityNominator.value = nominator.value.toString();
+            // cerate relations and save
+            entityNominator.exposureId = entityExposure.id;
+            entityNominator.save();
+        });
+
+    });
+    
+
+
+
+    
 }
+
+
+
+// function extractNominators (nominations: [StorageKey, Option<Nominations>][]): any {
+//   return nominations.reduce((mapped: any, [key, optNoms]) => {
+//     if (optNoms.isSome && key.args.length) {
+//       const nominatorId = key.args[0].toString();
+//       const { submittedIn, targets } = optNoms.unwrap();
+
+//       targets.forEach((_validatorId, index): void => {
+//         const validatorId = _validatorId.toString();
+//         // const info = { index: index + 1, nominatorId, submittedIn };
+//         const info = nominatorId.toString();
+
+//         if (!mapped[validatorId]) {
+//           mapped[validatorId] = [info];
+//         } else {
+//           mapped[validatorId].push(info);
+//         }
+//       });
+//     }
+
+//     return mapped;
+//   }, {});
+// }
+
+    // const 
+
+    // const nominations = await api.query.staking.nominators.entries();
+    // const nominatorMap = extractNominators(nominations);
+    // const test = JSON.stringify(nominatorMap);
+    // const nominators = {};
+    // array.forEach(function (item, index) {
+    //     const validatorKey = item[0][0].toString();
+    //     const nominatorSet = item[1].targets;
+    //     nominators[validatorKey] = nominatorSet;
+    // });
+
+
+        // entityEra.totalStaked = (await api.query.staking.erasTotalStake(activeEra.unwrap().index)).toBigInt();
+        // entityEra.totalValidators = validators.length;
+        // entityEra.validatorList = vals;
+        // entityEra.validatorWithLeastBond = thresholdValidator.accountId;
+        // entityEra.leastStaked = thresholdValidator.total.toBigInt();
+        // entityEra.maxNominatorRewardedPerValidator = api.consts.staking.maxNominatorRewardedPerValidator?.toNumber();
+
+
+    //         const exposureInfos = await api.query.staking.erasStakers.multi<ExposureType>(validators.map(validator=>[activeEra.unwrap().index, validator]));
+    // const thresholdValidator = exposureInfos.reduce<{accountId: string, total: Balance}>((acc, exposure, idx)=>{
+    //     if (!acc || exposure.total.unwrap().lt(acc.total)) {
+    //         return {accountId: validators[idx].toString(), total: exposure.total.unwrap()};
+    //     }
+    //     return acc;
+    // }, undefined );
+
+
+
+
 
 
 

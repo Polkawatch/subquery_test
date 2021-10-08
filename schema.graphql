@@ -1,21 +1,64 @@
 
-type ValidatorThreshold @entity {
+type Era @entity {
   # era index
   id: ID!
 
+  # validator set of era - one to one
+  validatorSet: ValidatorSet!
+
+  # era start block
   startBlock: Int!
 
+  # timestamp of era start
   timestamp: Date!
-
-  validatorWithLeastBond: String
-
-  validatorList: [String]
-
-  leastStaked: BigInt
-
-  totalStaked: BigInt
-
-  maxNominatorRewardedPerValidator: Int
-
-  totalValidators: Int
 }
+
+type ValidatorSet @entity {
+  # era index
+  id: ID!
+
+  # era of this validator set - one to one
+  era: Era!
+
+  # total number of validators in this era
+  totalValidators: Int
+
+  # list of all validators in this era
+  validatorList: [String]
+}
+
+type Exposure @entity {
+  # validator
+  id: ID!
+
+  # total amount at stake
+  total: String
+
+  # own amount at stake
+  own: String
+}
+
+type Nominator @entity {
+  # nominator (who field in metadata)
+  id: ID!
+
+  # validator - one to many
+  exposure: Exposure!
+
+  # staked amount
+  value: String
+}
+
+
+
+  # validatorWithLeastBond: String
+
+  # nominatorList: String
+
+  # leastStaked: BigInt
+
+  # totalStaked: BigInt
+
+  # maxNominatorRewardedPerValidator: Int
+
+  # validatorsWith5kOrMoreOwnStake: [String]
