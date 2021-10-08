@@ -12,8 +12,6 @@ export class Era implements Entity {
 
     public id: string;
 
-    public validatorSetId: string;
-
     public startBlock: number;
 
     public timestamp: Date;
@@ -39,13 +37,6 @@ export class Era implements Entity {
         }
     }
 
-
-    static async getByValidatorSetId(validatorSetId: string): Promise<Era[] | undefined>{
-      
-      const records = await store.getByField('Era', 'validatorSetId', validatorSetId);
-      return records.map(record => Era.create(record));
-      
-    }
 
 
     static create(record){

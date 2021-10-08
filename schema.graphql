@@ -3,9 +3,6 @@ type Era @entity {
   # era index
   id: ID!
 
-  # validator set of era - one to one
-  validatorSet: ValidatorSet!
-
   # era start block
   startBlock: Int!
 
@@ -17,7 +14,7 @@ type ValidatorSet @entity {
   # era index
   id: ID!
 
-  # era of this validator set - one to one
+  # era of this validator set - one to many
   era: Era!
 
   # total number of validators in this era

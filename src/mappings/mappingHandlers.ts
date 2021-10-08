@@ -31,7 +31,7 @@ export async function handleBlock({ block }: SubstrateEvent): Promise<void> {
     entityValidatorSet.validatorList = validators;
 
     // create realtionships & save
-    entityEra.validatorSetId = entityValidatorSet.id;
+    // entityEra.validatorSetId = entityValidatorSet.id;
     entityValidatorSet.eraId = entityEra.id;
     await entityEra.save();
     await entityValidatorSet.save();
